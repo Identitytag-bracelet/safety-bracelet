@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Generate Bracelet QR Codes</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+  <style>
+    body { font-family: Arial; background-color: #f4f4f4; padding: 20px; }
+    h2 { color: #2a7; }
+    input { padding: 8px; border-radius: 6px; border: 1px solid #ccc; margin-right: 10px; width: 80%; max-width: 500px; }
+    button { padding: 8px 12px; background: #2a7; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    .qr-item { background: white; padding: 10px; margin: 10px; display: inline-block; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); text-align: center; }
+    .qr-item img { display:block; margin:6px auto; }
+  </style>
+</head>
+<body>
+  <h2>Generate Bracelet QR Codes</h2>
+  <p>Enter your GitHub Pages link:</p>
+
+  <input type="text" id="baseUrl" value="https://cliford-spec.github.io/health.qr.code/">
+  <p>How many QR codes?</p>
+  <input type="number" id="count" value="5" min="1" max="1000">
+  <button onclick="generateQRCodes()">Generate</button>
+
+  <div id="result"></div>
+
+  <script>
+    function generateQRCodes() {
+      const baseUrl = document.getElementById('baseUrl').value.trim().replace(/\/?$/, '/');
+      const count = parseInt(document.getElementById('count').value) || 1;
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '';
+
+      for (let i = 1; i <= count; i++) {
+        const id = `bracelet${String(i).padStart(3,'0')}`;
+        const url = `${baseUrl}?id=${id}`;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'qr-item';
+        wrapper.innerHTML = `<p><b>${id}</b></p><div id="qr${i}"></div><p style="font-size:12px;">${url}</p>`;
+        resultDiv.appendChild(wrapper);
+        new QRCode(document.getElementById(`qr${i}`), { text: url, width: 128, height: 128 });
+      }
+    }
+  </script>
+</body>
+</html>
