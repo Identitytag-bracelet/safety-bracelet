@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Health Bracelet Info</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; padding: 20px; }
+    .card { background: white; max-width: 480px; margin: 30px auto; padding: 20px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.06); }
+    h2 { color: #1a9b59; margin-top: 0; }
+    input, textarea { width: 100%; padding: 10px; margin: 8px 0; border-radius: 6px; border: 1px solid #ddd; box-sizing: border-box; }
+    button { padding: 10px 14px; border: none; border-radius: 6px; background: #1a9b59; color: white; cursor: pointer; }
+    button:hover { background: #148548; }
+    .muted { color: #666; font-size: 0.9rem; }
+  </style>
+
+  <script type="module">
+    // --- Firebase config ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDbhVGOiY2gCNCvsElylzvAdcYsjaqldlc",
+      authDomain: "health-5845b.firebaseapp.com",
+      projectId: "health-5845b",
+      storageBucket: "health-5845b.firebasestorage.app",
+      messagingSenderId: "563237383831",
+      appId: "1:563237383831:web:57140193a3a654bcc783d2",
+    };
+
+    // --- Import Firebase modules ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
+    const container = document.createElement("div");
+    container.className = "card";
+    document.body.appendChild(container);
+
+    if (!id) {
+      container.innerHTML = `
+        <h2>QR Code invalid</h2>
+        <p class="muted">Make sure the QR code link includes <b>?id=yourcode</b>.</p>
+        <p class="muted">Example: https://yourusername.github.io/health.qr.code/?id=bracelet001</p>
+      `;
+    } else {
+      loadUserData(id);
+    }
+
+    async function loadUserData(id) {
+      container.innerHTML = `<h2>Loading...</h2>`;
+      const ref = doc(db, "users", id);
+      const snap = await getDoc(ref);
+
+      if (snap.exists()) {
+        const data = snap.data();
+        container.innerHTML = `
+          <h2>👤 ${escapeHtml(data.name || "No name")}</h2>
+          <p><b>Blood Type:</b> ${escapeHtml(data.blood || "-")}</p>
+          <p><b>Allergies:</b> ${escapeHtml(data.allergies || "-")}</p>
+          <p><b>Condition:</b> ${escapeHtml(data.condition || "-")}</p>
+          <p><b>Medication:</b> ${escapeHtml(data.medication || "-")}</p>
+          <p><b>Emergency Contact:</b> ${escapeHtml(data.contact || "-")}</p>
+          <button id="editBtn">Edit Information</button>
+          <p class="muted">ID: <code>${escapeHtml(id)}</code></p>
+        `;
+
+        document.getElementById("editBtn").addEventListener("click", () => {
+          const pin = prompt("Enter your 4-digit PIN to edit:");
+          if (pin === data.pin) {
+            showEditForm(ref, data);
+          } else {
+            alert("Incorrect PIN. Editing not allowed.");
+          }
+        });
+      } else {
+        showForm(ref);
+      }
+    }
+
+    function showForm(ref) {
+      container.innerHTML = `
+        <h2>Fill Your Health Info</h2>
+        <input id="name" placeholder="Full name" />
+        <input id="blood" placeholder="Blood Type (e.g. O+)" />
+        <input id="allergies" placeholder="Allergies (or 'None')" />
+        <input id="condition" placeholder="Medical condition(s)" />
+        <input id="medication" placeholder="Medication to take" />
+        <input id="contact" placeholder="Emergency contact (name - phone)" />
+        <input id="pin" placeholder="Set 4-digit PIN" maxlength="4" type="password" />
+        <button id="saveBtn">Save Information</button>
+        <p class="muted">This bracelet ID: <code>${escapeHtml(ref.id)}</code></p>
+      `;
+
+      document.getElementById("saveBtn").addEventListener("click", async () => {
+        const data = {
+          name: document.getElementById("name").value.trim(),
+          blood: document.getElementById("blood").value.trim(),
+          allergies: document.getElementById("allergies").value.trim(),
+          condition: document.getElementById("condition").value.trim(),
+          medication: document.getElementById("medication").value.trim(),
+          contact: document.getElementById("contact").value.trim(),
+          pin: document.getElementById("pin").value.trim(),
+          createdAt: new Date().toISOString(),
+        };
+
+        if (!data.name || !data.pin || data.pin.length !== 4) {
+          alert("Please fill name and a 4-digit PIN.");
+          return;
+        }
+
+        try {
+          await setDoc(ref, data);
+          alert("Information saved!");
+          location.reload();
+        } catch (err) {
+          console.error(err);
+          alert("Failed to save information. Check console for details.");
+        }
+      });
+    }
+
+    function showEditForm(ref, existing) {
+      container.innerHTML = `
+        <h2>Edit Health Info</h2>
+        <input id="name" value="${escapeHtml(existing.name || "")}" placeholder="Full name" />
+        <input id="blood" value="${escapeHtml(existing.blood || "")}" placeholder="Blood Type" />
+        <input id="allergies" value="${escapeHtml(existing.allergies || "")}" placeholder="Allergies" />
+        <input id="condition" value="${escapeHtml(existing.condition || "")}" placeholder="Condition" />
+        <input id="medication" value="${escapeHtml(existing.medication || "")}" placeholder="Medication" />
+        <input id="contact" value="${escapeHtml(existing.contact || "")}" placeholder="Emergency Contact" />
+        <button id="updateBtn">Update Information</button>
+        <p class="muted">ID: <code>${escapeHtml(ref.id)}</code></p>
+      `;
+
+      document.getElementById("updateBtn").addEventListener("click", async () => {
+        const updated = {
+          name: document.getElementById("name").value.trim(),
+          blood: document.getElementById("blood").value.trim(),
+          allergies: document.getElementById("allergies").value.trim(),
+          condition: document.getElementById("condition").value.trim(),
+          medication: document.getElementById("medication").value.trim(),
+          contact: document.getElementById("contact").value.trim(),
+          pin: existing.pin,
+          updatedAt: new Date().toISOString(),
+        };
+
+        try {
+          await setDoc(ref, updated);
+          alert("Information updated!");
+          location.reload();
+        } catch (err) {
+          console.error(err);
+          alert("Failed to update information. Check console for details.");
+        }
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/[&<>"']/g, s => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }[s]));
+    }
+  </script>
+</head>
+<body></body>
+</html>
